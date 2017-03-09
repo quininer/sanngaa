@@ -1,0 +1,10 @@
+[package]
+name = "sanngaa"
+version = "0.1.0"
+authors = ["quininer kel <quininer@live.com>"]
+
+[dependencies]
+html5ever-atoms = "*"
+tendril = "*"
+xml5ever = "*"
+kuchiki = { path = "../fork/kuchiki" }

@@ -3,8 +3,7 @@ extern crate sanngaa;
 use sanngaa::traits::*;
 
 fn main() {
-    // <?xml version="1.0" encoding="UTF-8" ?>
-    let input = r#"
+    let input = r#"<?xml version="1.0" encoding="UTF-8" ?>
     <root>
 	<request>
 		<field name="name" />

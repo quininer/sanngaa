@@ -73,21 +73,17 @@ impl TreeSink for Sink {
         NodeRef::new_comment(text)
     }
 
+    /// FIXME HACK, kuchiki need support PI.
+    #[inline]
     fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> NodeRef {
         use std::ops::Deref;
-        println!("{:?}, {:?}", target, data);
-        // FIXME parse pi to element
 
-        let name = QualName {
-            ns: ns!(),
-            local: LocalName::from(target.deref())
-        };
+        let name = QualName::new(ns!(), LocalName::from(target.deref()));
 
-        println!("{:?}", name);
-
-
-//        NodeRef::new_element(Vec::new());
-        unimplemented!()
+        NodeRef::new_element(name, Some((
+            QualName::new(ns!(), LocalName::from("data")),
+            data.to_string()
+        )))
     }
 
     #[inline]

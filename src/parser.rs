@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use html5ever_atoms::QualName;
+use html5ever_atoms::{ QualName, LocalName, Prefix };
 use tendril::StrTendril;
 use xml5ever::tree_builder::{ TreeSink, XmlTreeBuilderOpts, NodeOrText };
 use xml5ever::tokenizer::{ XmlTokenizerOpts, QName, Attribute };
@@ -73,7 +73,20 @@ impl TreeSink for Sink {
         NodeRef::new_comment(text)
     }
 
-    fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> Self::Handle {
+    fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> NodeRef {
+        use std::ops::Deref;
+        println!("{:?}, {:?}", target, data);
+        // FIXME parse pi to element
+
+        let name = QualName {
+            ns: ns!(),
+            local: LocalName::from(target.deref())
+        };
+
+        println!("{:?}", name);
+
+
+//        NodeRef::new_element(Vec::new());
         unimplemented!()
     }
 
@@ -107,17 +120,24 @@ impl TreeSink for Sink {
 
 fn qualname_to_qname(name: QualName) -> QName {
     let QualName { ns, local } = name;
+    let (prefix, local) = local.split_at(local.find(':').unwrap_or(0));
+
     QName {
-        prefix: namespace_prefix!(""),
-        local: local,
+        prefix: Prefix::from(prefix),
+        local: LocalName::from(local),
         namespace_url: ns
     }
 }
 
 fn qname_to_qualname(name: QName) -> QualName {
     let QName { prefix, local, namespace_url } = name;
+
     QualName {
         ns: namespace_url,
-        local: local
+        local: if prefix.is_empty() {
+            local
+        } else {
+            LocalName::from(format!("{}:{}", prefix, local))
+        }
     }
 }

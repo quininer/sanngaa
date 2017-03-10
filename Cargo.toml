@@ -7,4 +7,4 @@ authors = ["quininer kel <quininer@live.com>"]
 html5ever-atoms = "*"
 tendril = "*"
 xml5ever = "*"
-kuchiki = { path = "../fork/kuchiki" }
+kuchiki = { git = "https://github.com/SimonSapin/kuchiki.git" }

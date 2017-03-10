@@ -7,18 +7,24 @@ use xml5ever::driver::{ XmlParser, XmlParseOpts, parse_document };
 use kuchiki::NodeRef;
 
 
+/// Options for the XML parser.
 #[derive(Default)]
 pub struct ParseOpts {
+    /// Options for the XML tokenizer.
     pub tokenizer: XmlTokenizerOpts,
+    /// Options for the XML tree builder.
     pub tree_builder: XmlTreeBuilderOpts,
+    /// A callback for XML parse errors (which are never fatal).
     pub on_parse_error: Option<Box<FnMut(Cow<'static, str>)>>,
 }
 
+/// Parse an XML document with xml5ever and the default configuration.
 #[inline]
 pub fn parse_xml() -> XmlParser<Sink> {
     parse_xml_with_options(ParseOpts::default())
 }
 
+/// Parse an XML document with xml5ever with custom configuration.
 pub fn parse_xml_with_options(opts: ParseOpts) -> XmlParser<Sink> {
     let sink = Sink {
         document_node: NodeRef::new_document(),
@@ -37,7 +43,6 @@ pub struct Sink {
     document_node: NodeRef,
     on_parse_error: Option<Box<FnMut(Cow<'static, str>)>>,
 }
-
 
 impl TreeSink for Sink {
     type Handle = NodeRef;
@@ -76,14 +81,10 @@ impl TreeSink for Sink {
     /// FIXME HACK, kuchiki need support PI.
     #[inline]
     fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> NodeRef {
-        use std::ops::Deref;
+        let name = QualName::new(ns!(), LocalName::from(&*target));
+        let attrs = Some((QualName::new(ns!(), LocalName::from("data")), data.to_string()));
 
-        let name = QualName::new(ns!(), LocalName::from(target.deref()));
-
-        NodeRef::new_element(name, Some((
-            QualName::new(ns!(), LocalName::from("data")),
-            data.to_string()
-        )))
+        NodeRef::new_element(name, attrs)
     }
 
     #[inline]

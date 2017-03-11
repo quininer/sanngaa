@@ -121,7 +121,11 @@ fn qualname_to_qname(name: QualName) -> QName {
 
     QName {
         prefix: Prefix::from(prefix),
-        local: LocalName::from(local),
+        local: if prefix.is_empty() {
+            LocalName::from(local)
+        } else {
+            LocalName::from(&local[1..])
+        },
         namespace_url: ns
     }
 }

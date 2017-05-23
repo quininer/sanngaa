@@ -1,8 +1,9 @@
 use std::borrow::Cow;
-use html5ever_atoms::{ QualName, LocalName, Prefix };
+use markup5ever::{ QualName, ExpandedName, Attribute };
+use markup5ever::interface::{ QuirksMode, ElementFlags };
 use tendril::StrTendril;
 use xml5ever::tree_builder::{ TreeSink, XmlTreeBuilderOpts, NodeOrText };
-use xml5ever::tokenizer::{ XmlTokenizerOpts, QName, Attribute };
+use xml5ever::tokenizer::XmlTokenizerOpts;
 use xml5ever::driver::{ XmlParser, XmlParseOpts, parse_document };
 use kuchiki::NodeRef;
 
@@ -45,10 +46,11 @@ pub struct Sink {
 }
 
 impl TreeSink for Sink {
-    type Handle = NodeRef;
     type Output = NodeRef;
 
-    fn finish(self) -> Self::Output { self.document_node }
+    fn finish(self) -> NodeRef { self.document_node }
+
+    type Handle = NodeRef;
 
     #[inline]
     fn parse_error(&mut self, message: Cow<'static, str>) {
@@ -63,14 +65,25 @@ impl TreeSink for Sink {
     }
 
     #[inline]
-    fn elem_name(&self, target: &NodeRef) -> QName {
-        qualname_to_qname(target.as_element().unwrap().name.clone())
+    fn set_quirks_mode(&mut self, mode: QuirksMode) {
+        self.document_node.as_document().unwrap()._quirks_mode.set(mode)
     }
 
     #[inline]
-    fn create_element(&mut self, name: QName, attrs: Vec<Attribute>) -> NodeRef {
-        let attrs = attrs.into_iter().map(|Attribute { name, value }| (qname_to_qualname(name), value.into()));
-        NodeRef::new_element(qname_to_qualname(name), attrs)
+    fn same_node(&self, x: &NodeRef, y: &NodeRef) -> bool {
+        x == y
+    }
+
+    #[inline]
+    fn elem_name<'a>(&self, target: &'a NodeRef) -> ExpandedName<'a> {
+        target.as_element().unwrap().name.expanded()
+    }
+
+    #[inline]
+    fn create_element(&mut self, name: QualName, attrs: Vec<Attribute>, _flags: ElementFlags)
+                      -> NodeRef {
+        let attrs = attrs.into_iter().map(|Attribute { name, value }| (name, value.into()));
+        NodeRef::new_element(name, attrs)
     }
 
     #[inline]
@@ -78,17 +91,18 @@ impl TreeSink for Sink {
         NodeRef::new_comment(text)
     }
 
-    /// FIXME HACK, kuchiki need support PI.
     #[inline]
     fn create_pi(&mut self, target: StrTendril, data: StrTendril) -> NodeRef {
-        let name = QualName::new(ns!(), LocalName::from(&*target));
-        let attrs = Some((QualName::new(ns!(), LocalName::from("data")), data.to_string()));
-
-        NodeRef::new_element(name, attrs)
+        NodeRef::new_processing_instruction(target, data)
     }
 
     #[inline]
-    fn append(&mut self, parent: NodeRef, child: NodeOrText<NodeRef>) {
+    fn has_parent_node(&self, node: &NodeRef) -> bool {
+        node.parent().is_some()
+    }
+
+    #[inline]
+    fn append(&mut self, parent: &NodeRef, child: NodeOrText<NodeRef>) {
         match child {
             NodeOrText::AppendNode(node) => parent.append(node),
             NodeOrText::AppendText(text) => {
@@ -104,41 +118,57 @@ impl TreeSink for Sink {
     }
 
     #[inline]
+    fn append_before_sibling(&mut self, sibling: &NodeRef, child: NodeOrText<NodeRef>) {
+        match child {
+            NodeOrText::AppendNode(node) => sibling.insert_before(node),
+            NodeOrText::AppendText(text) => {
+                if let Some(previous_sibling) = sibling.previous_sibling() {
+                    if let Some(existing) = previous_sibling.as_text() {
+                        existing.borrow_mut().push_str(&text);
+                        return
+                    }
+                }
+                sibling.insert_before(NodeRef::new_text(text))
+            }
+        }
+    }
+
+    #[inline]
     fn append_doctype_to_document(&mut self, name: StrTendril, public_id: StrTendril,
                                   system_id: StrTendril) {
         self.document_node.append(NodeRef::new_doctype(name, public_id, system_id))
     }
 
     #[inline]
-    fn mark_script_already_started(&mut self, _node: NodeRef) {
+    fn add_attrs_if_missing(&mut self, target: &NodeRef, attrs: Vec<Attribute>) {
+        let element = target.as_element().unwrap();
+        let mut attributes = element.attributes.borrow_mut();
+        for Attribute { name, value } in attrs {
+            attributes.map.entry(name).or_insert_with(|| value.into());
+        }
+    }
+
+    #[inline]
+    fn remove_from_parent(&mut self, target: &NodeRef) {
+        target.detach()
+    }
+
+    #[inline]
+    fn reparent_children(&mut self, node: &NodeRef, new_parent: &NodeRef) {
+        // FIXME: Can this be done more effciently in rctree,
+        // by moving the whole linked list of children at once?
+        for child in node.children() {
+            new_parent.append(child)
+        }
+    }
+
+    #[inline]
+    fn mark_script_already_started(&mut self, _node: &NodeRef) {
         // FIXME: Is this useful outside of a browser?
     }
-}
 
-fn qualname_to_qname(name: QualName) -> QName {
-    let QualName { ns, local } = name;
-    let (prefix, local) = local.split_at(local.find(':').unwrap_or(0));
-
-    QName {
-        prefix: Prefix::from(prefix),
-        local: if prefix.is_empty() {
-            LocalName::from(local)
-        } else {
-            LocalName::from(&local[1..])
-        },
-        namespace_url: ns
-    }
-}
-
-fn qname_to_qualname(name: QName) -> QualName {
-    let QName { prefix, local, namespace_url } = name;
-
-    QualName {
-        ns: namespace_url,
-        local: if prefix.is_empty() {
-            local
-        } else {
-            LocalName::from(format!("{}:{}", prefix, local))
-        }
+    #[inline]
+    fn get_template_contents(&mut self, target: &NodeRef) -> NodeRef {
+        target.as_element().unwrap().template_contents.clone().unwrap()
     }
 }

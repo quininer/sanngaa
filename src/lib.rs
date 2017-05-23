@@ -1,4 +1,4 @@
-#[macro_use] extern crate html5ever_atoms;
+extern crate markup5ever;
 extern crate tendril;
 extern crate xml5ever;
 extern crate kuchiki;

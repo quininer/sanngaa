@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["quininer kel <quininer@live.com>"]
 
 [dependencies]
-html5ever-atoms = "0.2"
-tendril = "0.2"
-xml5ever = "0.4"
-kuchiki = { git = "https://github.com/SimonSapin/kuchiki.git" }
+markup5ever = "0.2"
+tendril = "0.3"
+xml5ever = "0.7"
+kuchiki = "0.5"
